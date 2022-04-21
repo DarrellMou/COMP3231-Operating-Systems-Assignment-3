@@ -40,6 +40,7 @@
 
 struct vnode;
 
+#define NUM_STACK_PAGES 16
 
 /*
  * Address space - data structure associated with the virtual memory
@@ -63,7 +64,12 @@ struct addrspace {
 };
 
 struct region {
-        
+        vaddr_t vaddr;
+        size_t memsize;
+        bool readable;
+        bool writeable;
+        bool executable;
+        bool old_writeable;
         struct region *next;
 };
 

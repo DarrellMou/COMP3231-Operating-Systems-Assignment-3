@@ -48,6 +48,10 @@
  *
  */
 
+/*
+ * allocate a data structure used to keep track of an address space
+ * i.e. regions
+ */
 struct addrspace *
 as_create(void)
 {
@@ -61,17 +65,26 @@ as_create(void)
 	/*
 	 * Initialize as needed.
 	 */
+	as->region_list = NULL;
 
 	return as;
 }
 
+/*
+ * allocates a new (destination) address space
+ * adds all the same regions as source
+ * roughly, for each mapped page in source
+ * 	allocate a frame in dest
+ * 	copy contents from frame to dest frame
+ * 	add PT entry for dest
+ */
 int
 as_copy(struct addrspace *old, struct addrspace **ret)
 {
 	struct addrspace *newas;
 
 	newas = as_create();
-	if (newas==NULL) {
+	if (newas == NULL) {
 		return ENOMEM;
 	}
 
@@ -79,12 +92,16 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	 * Write this.
 	 */
 
-	(void)old;
+
 
 	*ret = newas;
 	return 0;
 }
 
+/* 
+ * deallocate book keeping (region linked list) and page tables
+ * deallocate frames used
+ */
 void
 as_destroy(struct addrspace *as)
 {
@@ -95,9 +112,13 @@ as_destroy(struct addrspace *as)
 	kfree(as);
 }
 
+/*
+ * flush TLB
+ */
 void
 as_activate(void)
 {
+	int i, spl;
 	struct addrspace *as;
 
 	as = proc_getas();
@@ -112,8 +133,19 @@ as_activate(void)
 	/*
 	 * Write this.
 	 */
+	/* Disable interrupts on this CPU while frobbing the tlb. */
+	spl = splhigh();
+
+	for (i = 0; i < NUM_TLB; i++) {
+		tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
+	}
+
+	splx(spl);
 }
 
+/*
+ * flush TLB
+ */
 void
 as_deactivate(void)
 {
@@ -122,6 +154,7 @@ as_deactivate(void)
 	 * anything. See proc.c for an explanation of why it (might)
 	 * be needed.
 	 */
+	as_activate(void);
 }
 
 /*
@@ -142,15 +175,47 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 	 * Write this.
 	 */
 
-	(void)as;
-	(void)vaddr;
-	(void)memsize;
-	(void)readable;
-	(void)writeable;
-	(void)executable;
-	return ENOSYS; /* Unimplemented */
+	memsize += vaddr & ~(vaddr_t)PAGE_FRAME;
+	vaddr &= PAGE_FRAME;
+	memsize = (memsize + PAGE_SIZE - 1) & PAGE_FRAME;
+
+	// Check for region within kuseg
+	if ((vaddr + memsize) > MIPS_KSEG0) {
+		return EFAULT;
+	}
+
+	// Check for overlapping regions
+	struct region *curr = as->region_list;
+	while (curr != NULL) {
+		if ((vaddr <= curr->vaddr + curr->memsize) &&
+			(vaddr + memsize) >= curr->vaddr)) {
+			return EINVAL;
+		}
+		curr = curr->next;
+	}
+
+	struct region *new_region = kmalloc(sizeof(struct region));
+	if (region == NULL) {
+		return ENOMEM;
+	}
+
+	new_region->vaddr = vaddr;
+	new_region->memsize = memsize;
+	new_region->readable = readable;
+	new_region->writeable = writeable;
+	new_region->executable = executable;
+	new_region->old_writeable = writeable;
+	new_reigon->next = NULL;
+
+	new_region->next = as->region_list;
+	as->region_list = new_region;
+
+	return 0;
 }
 
+/*
+ * make READONLY regions READWRITE for loading purposes
+ */
 int
 as_prepare_load(struct addrspace *as)
 {
@@ -158,10 +223,18 @@ as_prepare_load(struct addrspace *as)
 	 * Write this.
 	 */
 
-	(void)as;
+	struct region *curr = as->region_list;
+	while (curr != NULL) {
+		curr->writeable = true;
+		curr = curr->next;
+	}
+
 	return 0;
 }
 
+/*
+ * make regions READONLY
+ */
 int
 as_complete_load(struct addrspace *as)
 {
@@ -169,7 +242,12 @@ as_complete_load(struct addrspace *as)
 	 * Write this.
 	 */
 
-	(void)as;
+	struct region *curr = as->region_list;
+	while (curr != NULL) {
+		curr->writeable = curr->old_writeable;
+		curr = curr->next;
+	}
+
 	return 0;
 }
 
@@ -180,11 +258,9 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 	 * Write this.
 	 */
 
-	(void)as;
-
 	/* Initial user-level stack pointer */
 	*stackptr = USERSTACK;
 
-	return 0;
+	return as_define_region(as, *stackptr - PAGE_SIZE * NUM_STACK_PAGES, PAGE_SIZE * NUM_STACK_PAGES, true, true, false);
 }
 
