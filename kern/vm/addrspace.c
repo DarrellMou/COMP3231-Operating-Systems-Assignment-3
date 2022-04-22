@@ -92,7 +92,31 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	 * Write this.
 	 */
 
+	struct region *curr = old->region_list;
+	while (curr != NULL) {
+		int result = as_define_region(newas, curr->vaddr, curr->memsize, curr->readable, curr->writeable, curr->executable);
+		if (result) {
+			as_destroy(newas);
+			return result;
+		}
+		curr = curr->next;
+	}
 
+	/*
+	 * roughly, for each mapped page in source
+	 *  allocate a frame in dest
+	 *  copy contents from frame to dest frame
+	 *  add PT entry for dest
+	 */
+	curr = old->region_list;
+	while (curr != NULL) {
+		vaddr_t curr_addr = curr->vaddr;
+		while (curr_addr != curr->vaddr + curr->memsize) {
+			// Insert page into newas if page from old exists
+			curr_addr += PAGE_SIZE;
+		}
+		curr = curr->next;
+	}
 
 	*ret = newas;
 	return 0;
@@ -108,6 +132,25 @@ as_destroy(struct addrspace *as)
 	/*
 	 * Clean up as needed.
 	 */
+	for (int i = 0; i < PAGETABLE_SIZE; i++) {
+		if (as->page_table[i] != NULL) {
+			for (int j = 0; j < PAGETABLE_SIZE; j++) {
+				if (as->page_table[i][j] != NULL) {
+					free_kpages(PADDR_TO_KVADDR(as->page_table[i][j]) & PAGE_FRAME);
+				}
+			}
+			kfree(as->page_table[i]);
+		}
+	}
+	kfree(as->page_table);
+
+	struct region *tmp;
+	struct region *curr = as->region_list;
+	while (curr != NULL) {
+		tmp = curr;
+		curr = curr->next;
+		kfree(tmp);
+	}
 
 	kfree(as);
 }
@@ -154,7 +197,7 @@ as_deactivate(void)
 	 * anything. See proc.c for an explanation of why it (might)
 	 * be needed.
 	 */
-	as_activate(void);
+	as_activate();
 }
 
 /*
@@ -188,14 +231,14 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 	struct region *curr = as->region_list;
 	while (curr != NULL) {
 		if ((vaddr <= curr->vaddr + curr->memsize) &&
-			(vaddr + memsize) >= curr->vaddr)) {
+			(vaddr + memsize) >= curr->vaddr) {
 			return EINVAL;
 		}
 		curr = curr->next;
 	}
 
 	struct region *new_region = kmalloc(sizeof(struct region));
-	if (region == NULL) {
+	if (new_region == NULL) {
 		return ENOMEM;
 	}
 
@@ -205,7 +248,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 	new_region->writeable = writeable;
 	new_region->executable = executable;
 	new_region->old_writeable = writeable;
-	new_reigon->next = NULL;
+	new_region->next = NULL;
 
 	new_region->next = as->region_list;
 	as->region_list = new_region;
@@ -241,7 +284,7 @@ as_complete_load(struct addrspace *as)
 	/*
 	 * Write this.
 	 */
-
+	as_activate();
 	struct region *curr = as->region_list;
 	while (curr != NULL) {
 		curr->writeable = curr->old_writeable;
