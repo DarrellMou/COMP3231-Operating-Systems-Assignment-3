@@ -122,15 +122,8 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	 *  add PT entry for dest
 	 */
 	curr = old->region_list;
-	while (curr != NULL) {
-		vaddr_t curr_addr = curr->vaddr;
-		while (curr_addr != curr->vaddr + curr->memsize) {
-			// Insert page into newas if page from old exists
-			curr_addr += PAGE_SIZE;
-		}
-		curr = curr->next;
-	}
 
+	vm_copy_pt(old->pagetable, newas->pagetable);
 	*ret = newas;
 	return 0;
 }
@@ -148,7 +141,7 @@ as_destroy(struct addrspace *as)
 	for (int i = 0; i < PAGETABLE_SIZE; i++) {
 		if (as->pagetable[i] != NULL) {
 			for (int j = 0; j < PAGETABLE_SIZE; j++) {
-				if (as->pagetable[i][j] != NULL) {
+				if (as->pagetable[i][j] != 0) {
 					free_kpages(PADDR_TO_KVADDR(as->pagetable[i][j]) & PAGE_FRAME);
 				}
 			}
