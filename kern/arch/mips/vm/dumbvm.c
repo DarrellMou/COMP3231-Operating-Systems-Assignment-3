@@ -190,7 +190,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		return EFAULT;
 	}
 
-	as = proc_getas();
+	struct addrspace *as = proc_getas();
 	if (as == NULL) {
 		/*
 		 * No address space set up. This is probably also a

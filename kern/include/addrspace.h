@@ -48,6 +48,7 @@ struct vnode;
  * You write this.
  */
 
+
 struct addrspace {
 #if OPT_DUMBVM
         vaddr_t as_vbase1;
@@ -57,10 +58,23 @@ struct addrspace {
         paddr_t as_pbase2;
         size_t as_npages2;
         paddr_t as_stackpbase;
+
 #else
-        /* Put stuff here for your VM system */
+        struct region *region_list;
+        paddr_t **pagetable;
 #endif
 };
+
+struct region {
+        vaddr_t vaddr;
+        size_t memsize;
+        bool readable;
+        bool writeable;
+        bool executable;
+        bool old_writeable;
+        struct region *next;
+};
+
 
 /*
  * Functions in addrspace.c:
