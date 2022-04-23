@@ -133,16 +133,16 @@ as_destroy(struct addrspace *as)
 	 * Clean up as needed.
 	 */
 	for (int i = 0; i < PAGETABLE_SIZE; i++) {
-		if (as->page_table[i] != NULL) {
+		if (as->pagetable[i] != NULL) {
 			for (int j = 0; j < PAGETABLE_SIZE; j++) {
-				if (as->page_table[i][j] != NULL) {
-					free_kpages(PADDR_TO_KVADDR(as->page_table[i][j]) & PAGE_FRAME);
+				if (as->pagetable[i][j] != NULL) {
+					free_kpages(PADDR_TO_KVADDR(as->pagetable[i][j]) & PAGE_FRAME);
 				}
 			}
-			kfree(as->page_table[i]);
+			kfree(as->pagetable[i]);
 		}
 	}
-	kfree(as->page_table);
+	kfree(as->pagetable);
 
 	struct region *tmp;
 	struct region *curr = as->region_list;
@@ -268,6 +268,7 @@ as_prepare_load(struct addrspace *as)
 
 	struct region *curr = as->region_list;
 	while (curr != NULL) {
+		curr->old_writeable = curr->writeable;
 		curr->writeable = true;
 		curr = curr->next;
 	}
