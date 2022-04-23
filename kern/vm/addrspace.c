@@ -67,6 +67,19 @@ as_create(void)
 	 */
 	as->region_list = NULL;
 
+	// initialize first-level page table
+	as->pagetable = (paddr_t **) alloc_kpages(1);
+
+	if (as->pagetable == NULL) {
+		kfree(as);
+		return NULL;
+	}
+
+	// set 1st lvl page table entries to NULL using index as offsets
+	for (int i = 0; i < PT_SIZE; i++) {
+		as->pagetable[i] = NULL;
+	}
+
 	return as;
 }
 

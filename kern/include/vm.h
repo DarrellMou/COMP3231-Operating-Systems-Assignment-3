@@ -35,6 +35,7 @@
  *
  * You'll probably want to add stuff here.
  */
+ #define PT_SIZE 1024
 
 
 #include <machine/vm.h>
@@ -47,7 +48,9 @@
 
 /* Initialization function */
 void vm_bootstrap(void);
-
+int vm_add_l1_entry(paddr_t **page_table, uint32_t pt1_index);
+int vm_add_l2_entry(paddr_t **page_table, uint32_t pt1_index, uint32_t pt2_index, uint32_t dirty);
+int vm_copy_pt(paddr_t **old_pt, paddr_t **new_pt);
 /* Fault handling function called by trap code */
 int vm_fault(int faulttype, vaddr_t faultaddress);
 
