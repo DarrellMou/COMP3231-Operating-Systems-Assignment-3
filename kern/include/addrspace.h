@@ -30,6 +30,9 @@
 #ifndef _ADDRSPACE_H_
 #define _ADDRSPACE_H_
 
+#define NUM_STACK_PAGES 16
+#define PAGETABLE_SIZE 1024
+
 /*
  * Address space structure and operations.
  */
@@ -39,7 +42,6 @@
 #include "opt-dumbvm.h"
 
 struct vnode;
-
 
 /*
  * Address space - data structure associated with the virtual memory
