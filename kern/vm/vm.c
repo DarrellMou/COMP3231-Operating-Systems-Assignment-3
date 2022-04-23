@@ -127,13 +127,14 @@ vm_fault(int faulttype, vaddr_t faultaddress)
         // look up region
         while (cur_reg != NULL) {
             // check valid region
-            if ((faultaddress >= cur_reg->vaddr) && (faultaddress < cur_reg->vaddr + (cur_reg->memsize * PAGE_SIZE))) {
+            if ((faultaddress >= cur_reg->vaddr) && (faultaddress < cur_reg->vaddr + cur_reg->memsize)) {
                 if (cur_reg->writeable) {
                     dirty = TLBLO_DIRTY;
                 }
                 else {
                     dirty = 0;
                 }
+                break;
             }
             cur_reg = cur_reg->next;
         }

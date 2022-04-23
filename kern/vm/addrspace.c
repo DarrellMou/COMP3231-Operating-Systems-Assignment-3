@@ -145,7 +145,6 @@ as_destroy(struct addrspace *as)
 					free_kpages(PADDR_TO_KVADDR(as->pagetable[i][j]) & PAGE_FRAME);
 				}
 			}
-			kfree(as->pagetable[i]);
 		}
 	}
 	kfree(as->pagetable);
