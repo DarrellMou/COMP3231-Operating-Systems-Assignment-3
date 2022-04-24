@@ -64,6 +64,7 @@ struct addrspace {
 #else
         struct region *region_list;
         paddr_t **pagetable;
+        struct lock *pt_lock;
 #endif
 };
 

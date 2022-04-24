@@ -37,6 +37,7 @@
 #include <addrspace.h>
 #include <vm.h>
 #include <proc.h>
+#include <synch.h>
 
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
@@ -79,6 +80,7 @@ as_create(void)
 	for (int i = 0; i < PT_SIZE; i++) {
 		as->pagetable[i] = NULL;
 	}
+	as->pt_lock = lock_create("page_table_lock");
 
 	return as;
 }
@@ -122,8 +124,9 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	 *  add PT entry for dest
 	 */
 	curr = old->region_list;
-
-	vm_copy_pt(old->pagetable, newas->pagetable);
+	lock_acquire(old->pt_lock);
+	vm_copy_pt(old->pagetable, newas->pagetable);;
+	lock_release(old->pt_lock);
 	*ret = newas;
 	return 0;
 }
@@ -138,6 +141,7 @@ as_destroy(struct addrspace *as)
 	/*
 	 * Clean up as needed.
 	 */
+	lock_acquire(as->pt_lock);
 	for (int i = 0; i < PAGETABLE_SIZE; i++) {
 		if (as->pagetable[i] != NULL) {
 			for (int j = 0; j < PAGETABLE_SIZE; j++) {
@@ -156,7 +160,8 @@ as_destroy(struct addrspace *as)
 		curr = curr->next;
 		kfree(tmp);
 	}
-
+	lock_release(as->pt_lock);
+	lock_destroy(as->pt_lock);
 	kfree(as);
 }
 

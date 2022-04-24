@@ -8,12 +8,13 @@
 #include <current.h>
 #include <spl.h>
 #include <proc.h>
+#include <synch.h>
 
 /* Place your page table functions here */
 
 
 int vm_add_l1_entry(paddr_t **pagetable, uint32_t pt1_index) {
-
+    
     pagetable[pt1_index] = kmalloc(PT_SIZE * (sizeof(paddr_t)));
 
     if (pagetable[pt1_index] == NULL) {
@@ -111,10 +112,12 @@ vm_fault(int faulttype, vaddr_t faultaddress)
     uint32_t pt2_bits = (p_frame_num << 10) >> 22;
 
     bool alloc_pt1 = false;
+    lock_acquire(as->pt_lock);
     // check if 1-lvl is NULL
     if (as->pagetable[pt1_bits] == NULL) {
         int check = vm_add_l1_entry(as->pagetable, pt1_bits);
         if (check) {
+            lock_release(as->pt_lock);
             return check;
         }
         alloc_pt1 = true;
@@ -144,6 +147,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
             if (alloc_pt1) {
                 kfree(as->pagetable[pt1_bits]);
             }
+            lock_release(as->pt_lock);
             return EFAULT;
         }
 
@@ -153,20 +157,24 @@ vm_fault(int faulttype, vaddr_t faultaddress)
             if (alloc_pt1) {
                 kfree(as->pagetable[pt1_bits]);
             }
+            lock_release(as->pt_lock);
             return check;
         }
-
     }
-
+    lock_release(as->pt_lock);
     // load tlb
     uint32_t entryHi = faultaddress & PAGE_FRAME;
     uint32_t entryLo = as->pagetable[pt1_bits][pt2_bits];
+    load_tlb(entryHi, entryLo);
+
+    return 0;
+}
+
+void load_tlb(uint32_t entryHi, uint32_t entryLo) {
     // disable interrupt
     int spl = splhigh();
     tlb_random(entryHi, entryLo);
     splx(spl);
-
-    return 0;
 }
 
 /*
