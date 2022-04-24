@@ -31,7 +31,6 @@
 #define _ADDRSPACE_H_
 
 #define NUM_STACK_PAGES 16
-#define PAGETABLE_SIZE 1024
 
 /*
  * Address space structure and operations.

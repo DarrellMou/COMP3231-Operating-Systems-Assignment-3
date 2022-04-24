@@ -125,7 +125,9 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	 */
 	curr = old->region_list;
 	lock_acquire(old->pt_lock);
-	vm_copy_pt(old->pagetable, newas->pagetable);;
+	//lock_acquire(newas->pt_lock);
+	vm_copy_pt(old->pagetable, newas->pagetable);
+	//lock_release(newas->pt_lock);
 	lock_release(old->pt_lock);
 	*ret = newas;
 	return 0;
@@ -142,9 +144,9 @@ as_destroy(struct addrspace *as)
 	 * Clean up as needed.
 	 */
 	lock_acquire(as->pt_lock);
-	for (int i = 0; i < PAGETABLE_SIZE; i++) {
+	for (int i = 0; i < PT_SIZE; i++) {
 		if (as->pagetable[i] != NULL) {
-			for (int j = 0; j < PAGETABLE_SIZE; j++) {
+			for (int j = 0; j < PT_SIZE; j++) {
 				if (as->pagetable[i][j] != 0) {
 					free_kpages(PADDR_TO_KVADDR(as->pagetable[i][j]) & PAGE_FRAME);
 				}
