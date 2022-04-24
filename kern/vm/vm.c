@@ -35,7 +35,7 @@ int vm_add_l2_entry(paddr_t **pagetable, uint32_t pt1_index, uint32_t pt2_index,
     if (v_page_addrs == 0) {
         return ENOMEM;
     }
-    bzero((void *)v_page_addrs, PAGE_SIZE);
+    bzero((void *) v_page_addrs, PAGE_SIZE);
     // get physical frame number from virtual page number
     paddr_t p_frame_num = KVADDR_TO_PADDR(v_page_addrs) & PAGE_FRAME;
 
@@ -48,6 +48,7 @@ int vm_copy_pt(paddr_t **old_pt, paddr_t **new_pt) {
 
     for (int i = 0; i < PT_SIZE; i++) {
         if (old_pt[i] == NULL) {
+            new_pt[i] = NULL;
             continue;
         }
 
@@ -59,7 +60,7 @@ int vm_copy_pt(paddr_t **old_pt, paddr_t **new_pt) {
                 if (v_page_addrs == 0) {
                     return ENOMEM;
                 }
-                bzero((void *)v_page_addrs, PAGE_SIZE);
+                bzero((void *) v_page_addrs, PAGE_SIZE);
                 memmove((void *) v_page_addrs, (const void *) PADDR_TO_KVADDR(old_pt[i][j] & PAGE_FRAME), PAGE_SIZE);
                 // check if old_pt is dirty
                 uint32_t dirty = old_pt[i][j] & TLBLO_DIRTY;               
